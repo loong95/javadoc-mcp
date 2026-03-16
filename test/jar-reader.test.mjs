@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const { resolveEntryName } = await import('../dist/javadoc/jar-reader.js');
-const { parsePackageSummary } = await import('../dist/javadoc/parser.js');
+const { parseClassPage, parsePackageSummary } = await import('../dist/javadoc/parser.js');
 
 test('resolveEntryName prefers an exact JAR entry match', () => {
   const entryName = resolveEntryName(
@@ -52,4 +52,25 @@ test('parsePackageSummary reads legacy rows with th.colFirst', () => {
       description: 'Interface used to interact with the persistence context.',
     },
   ]);
+});
+
+test('parseClassPage reads the class-level javadoc from section.class-description', () => {
+  const doc = parseClassPage(`
+    <section class="class-description" id="class-description">
+      <div class="type-signature">public @interface MockBean</div>
+      <div class="deprecation-block">
+        <div class="deprecation-comment">Deprecated in favor of MockitoBean.</div>
+      </div>
+      <div class="block">Annotation that can be used to add mocks to a Spring ApplicationContext.</div>
+      <dl class="notes">
+        <dt>Since:</dt>
+        <dd>1.4.0</dd>
+      </dl>
+    </section>
+  `);
+
+  assert.equal(
+    doc.description,
+    'Annotation that can be used to add mocks to a Spring ApplicationContext.'
+  );
 });

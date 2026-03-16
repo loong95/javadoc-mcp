@@ -104,8 +104,7 @@ export function parseClassPage(html: string): ClassDoc {
   else if (sigLower.includes("record")) kind = "record";
 
   // 描述: 类级别的 javadoc 文本
-  const descBlock = $("div.class-description div.block, div.description div.block, div.contentContainer div.block").first();
-  const description = descBlock.text().trim() || "";
+  const description = extractClassDescription($);
 
   // 继承链
   const superClass = $("span.extends-implements, ul.inheritance")
@@ -142,6 +141,26 @@ export function parseClassPage(html: string): ClassDoc {
     methods: methods.length > 0 ? methods : undefined,
     enumConstants: enumConstants.length > 0 ? enumConstants : undefined,
   };
+}
+
+function extractClassDescription($: cheerio.CheerioAPI): string {
+  const candidates = [
+    "section.class-description > div.block",
+    "div.class-description > div.block",
+    "div.description > div.block",
+    "div.contentContainer > div.description > div.block",
+    "div.contentContainer div.description > ul.blockList > li.blockList > div.block",
+    "div.contentContainer > ul.blockList > li.blockList > div.block",
+  ];
+
+  for (const selector of candidates) {
+    const text = $(selector).first().text().trim();
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
 }
 
 function parseSummaryTable(
