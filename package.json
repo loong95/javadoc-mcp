@@ -1,0 +1,27 @@
+{
+  "name": "javadoc-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for browsing JavaDoc documentation via Maven coordinates",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "javadoc-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "adm-zip": "^0.5.16",
+    "cheerio": "^1.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
