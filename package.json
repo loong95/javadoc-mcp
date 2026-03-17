@@ -2,13 +2,31 @@
   "name": "javadoc-mcp",
   "version": "1.0.0",
   "description": "MCP server for browsing JavaDoc documentation via Maven coordinates",
+  "license": "Apache-2.0",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "javadoc",
+    "java",
+    "maven"
+  ],
   "type": "module",
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "javadoc-mcp": "dist/index.js"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test",
     "test": "npm run build && node --test test/*.test.mjs",
     "start": "node dist/index.js",
     "dev": "tsc --watch"

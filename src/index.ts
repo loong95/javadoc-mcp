@@ -1,15 +1,25 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import fs from "node:fs";
 import { listPackagesSchema, listPackages } from "./tools/list-packages.js";
 import { listClassesSchema, listClasses } from "./tools/list-classes.js";
 import { getClassSchema, getClass } from "./tools/get-class.js";
 import { getMemberSchema, getMember } from "./tools/get-member.js";
 import { searchSchema, search } from "./tools/search.js";
 
+type PackageManifest = {
+  name?: string;
+  version?: string;
+};
+
+const packageJson = JSON.parse(
+  fs.readFileSync(new URL("../package.json", import.meta.url), "utf-8")
+) as PackageManifest;
+
 const server = new McpServer({
-  name: "javadoc-mcp",
-  version: "1.0.0",
+  name: packageJson.name ?? "javadoc-mcp",
+  version: packageJson.version ?? "1.0.0",
 });
 
 // 注册 tools
