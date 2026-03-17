@@ -19,7 +19,7 @@ const packageJson = JSON.parse(
 
 const server = new McpServer({
   name: packageJson.name ?? "javadoc-mcp",
-  version: packageJson.version ?? "1.0.0",
+  version: packageJson.version ?? "1.0.1",
 });
 
 // 注册 tools

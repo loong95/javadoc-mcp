@@ -23,6 +23,10 @@ export interface ClassDoc {
   kind: string;
   description: string;
   typeParameters?: string;
+  authors?: string[];
+  since?: string;
+  deprecated?: string;
+  seeAlso?: string[];
   superClass?: string;
   interfaces?: string[];
   nestedClasses?: MemberSummary[];

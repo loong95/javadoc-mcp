@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { readEntry } from "../javadoc/jar-reader.js";
 import { parseClassPage } from "../javadoc/parser.js";
-import type { MavenCoordinate } from "../types.js";
+import { parseClassSourceDoc } from "../javadoc/source-parser.js";
+import { readSourceEntry } from "../javadoc/source-reader.js";
+import type { ClassDoc, MavenCoordinate } from "../types.js";
 
 export const getClassSchema = z.object({
   groupId: z.string().describe("Maven Group ID"),
@@ -23,9 +25,62 @@ export async function getClass(
   }
 
   const doc = parseClassPage(html);
+  const sourceMetadata = needsSourceFallback(doc)
+    ? await loadSourceMetadata(coord, params.className, classPath)
+    : {};
 
+  return renderClassDocumentation(
+    params.className,
+    mergeClassDocMetadata(doc, sourceMetadata)
+  );
+}
+
+function needsSourceFallback(doc: ClassDoc): boolean {
+  return (
+    !doc.authors ||
+    doc.authors.length === 0 ||
+    !doc.since ||
+    !doc.deprecated ||
+    !doc.seeAlso ||
+    doc.seeAlso.length === 0
+  );
+}
+
+async function loadSourceMetadata(
+  coord: MavenCoordinate,
+  className: string,
+  classPath: string
+): Promise<Partial<ClassDoc>> {
+  try {
+    const source = await readSourceEntry(coord, `${classPath}.java`);
+    if (!source) {
+      return {};
+    }
+    return parseClassSourceDoc(source, className);
+  } catch {
+    return {};
+  }
+}
+
+export function mergeClassDocMetadata(
+  doc: ClassDoc,
+  fallback: Partial<ClassDoc>
+): ClassDoc {
+  return {
+    ...doc,
+    authors: fallback.authors ?? doc.authors,
+    since: doc.since ?? fallback.since,
+    deprecated: fallback.deprecated ?? doc.deprecated,
+    seeAlso: doc.seeAlso ?? fallback.seeAlso,
+  };
+}
+
+export function renderClassDocumentation(
+  className: string,
+  doc: ClassDoc
+): string {
   const lines: string[] = [];
-  lines.push(`# ${params.className}\n`);
+  lines.push(`# ${className}\n`);
 
   if (doc.signature) {
     lines.push("```java");
@@ -40,8 +95,24 @@ export async function getClass(
     lines.push(`**Implements**: ${doc.interfaces.join(", ")}\n`);
   }
 
+  if (doc.deprecated) {
+    lines.push(`> **Deprecated**: ${doc.deprecated}\n`);
+  }
+
   if (doc.description) {
     lines.push(`## Description\n\n${doc.description}\n`);
+  }
+
+  if (doc.authors && doc.authors.length > 0) {
+    lines.push(
+      `**${doc.authors.length > 1 ? "Authors" : "Author"}**: ${doc.authors.join(", ")}\n`
+    );
+  }
+  if (doc.since) {
+    lines.push(`**Since**: ${doc.since}\n`);
+  }
+  if (doc.seeAlso && doc.seeAlso.length > 0) {
+    lines.push(`**See Also**: ${doc.seeAlso.join(", ")}\n`);
   }
 
   const sections: [string, typeof doc.methods][] = [

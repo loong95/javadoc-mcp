@@ -38,16 +38,31 @@ function resolveLocalRepository(): string {
 
 const LOCAL_REPOSITORY = resolveLocalRepository();
 
-/** 获取某个 Maven 坐标对应的 JavaDoc JAR 在本地 Maven 仓库中的路径 */
-export function getJarPath(coord: MavenCoordinate): string {
+function getClassifierJarFileName(
+  coord: MavenCoordinate,
+  classifier: string
+): string {
+  return `${coord.artifactId}-${coord.version}-${classifier}.jar`;
+}
+
+/** 获取某个 Maven 坐标对应分类器 JAR 在本地 Maven 仓库中的路径 */
+export function getClassifierJarPath(
+  coord: MavenCoordinate,
+  classifier: string
+): string {
   const groupPath = coord.groupId.replace(/\./g, "/");
   return path.join(
     LOCAL_REPOSITORY,
     groupPath,
     coord.artifactId,
     coord.version,
-    `${coord.artifactId}-${coord.version}-javadoc.jar`
+    getClassifierJarFileName(coord, classifier)
   );
+}
+
+/** 获取某个 Maven 坐标对应的 JavaDoc JAR 在本地 Maven 仓库中的路径 */
+export function getJarPath(coord: MavenCoordinate): string {
+  return getClassifierJarPath(coord, "javadoc");
 }
 
 /** 检查 JAR 是否已存在于本地 Maven 仓库 */
@@ -55,9 +70,20 @@ export function isCached(coord: MavenCoordinate): boolean {
   return fs.existsSync(getJarPath(coord));
 }
 
-/** 通过 mvn 命令将 JavaDoc JAR 下载到本地 Maven 仓库 */
-async function downloadViaMaven(coord: MavenCoordinate): Promise<void> {
-  const artifact = `${coord.groupId}:${coord.artifactId}:${coord.version}:jar:javadoc`;
+function isClassifierCached(
+  coord: MavenCoordinate,
+  classifier: string
+): boolean {
+  return fs.existsSync(getClassifierJarPath(coord, classifier));
+}
+
+/** 通过 mvn 命令将指定 classifier 的 JAR 下载到本地 Maven 仓库 */
+async function downloadViaMaven(
+  coord: MavenCoordinate,
+  classifier: string
+): Promise<void> {
+  const artifact =
+    `${coord.groupId}:${coord.artifactId}:${coord.version}:jar:${classifier}`;
   await execFileAsync("mvn", [
     "dependency:get",
     `-Dartifact=${artifact}`,
@@ -65,29 +91,42 @@ async function downloadViaMaven(coord: MavenCoordinate): Promise<void> {
   ]);
 }
 
-/** 确保 JavaDoc JAR 已存在于本地 Maven 仓库。返回 JAR 文件路径。 */
-export async function ensureJar(coord: MavenCoordinate): Promise<string> {
-  const jarPath = getJarPath(coord);
+/** 确保指定 classifier 的 JAR 已存在于本地 Maven 仓库。返回 JAR 文件路径。 */
+export async function ensureClassifierJar(
+  coord: MavenCoordinate,
+  classifier: string
+): Promise<string> {
+  const jarPath = getClassifierJarPath(coord, classifier);
 
-  if (isCached(coord)) {
+  if (isClassifierCached(coord, classifier)) {
     return jarPath;
   }
 
   try {
-    await downloadViaMaven(coord);
+    await downloadViaMaven(coord, classifier);
   } catch (mvnError) {
     throw new Error(
-      `Failed to resolve javadoc for ${coord.groupId}:${coord.artifactId}:${coord.version} into local Maven repository ${LOCAL_REPOSITORY}. ` +
+      `Failed to resolve ${classifier} jar for ${coord.groupId}:${coord.artifactId}:${coord.version} into local Maven repository ${LOCAL_REPOSITORY}. ` +
         `Maven: ${mvnError instanceof Error ? mvnError.message : mvnError}.`
     );
   }
 
   if (!fs.existsSync(jarPath)) {
     throw new Error(
-      `Resolved javadoc for ${coord.groupId}:${coord.artifactId}:${coord.version}, ` +
+      `Resolved ${classifier} jar for ${coord.groupId}:${coord.artifactId}:${coord.version}, ` +
         `but no JAR was found in local Maven repository: ${jarPath}.`
     );
   }
 
   return jarPath;
+}
+
+/** 确保 JavaDoc JAR 已存在于本地 Maven 仓库。返回 JAR 文件路径。 */
+export async function ensureJar(coord: MavenCoordinate): Promise<string> {
+  return ensureClassifierJar(coord, "javadoc");
+}
+
+/** 确保 sources JAR 已存在于本地 Maven 仓库。返回 JAR 文件路径。 */
+export async function ensureSourceJar(coord: MavenCoordinate): Promise<string> {
+  return ensureClassifierJar(coord, "sources");
 }

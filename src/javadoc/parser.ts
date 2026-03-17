@@ -90,6 +90,7 @@ export function parsePackageSummary(html: string): ClassInfo[] {
 /** 从类 HTML 页面提取类文档概览 */
 export function parseClassPage(html: string): ClassDoc {
   const $ = cheerio.load(html);
+  const classContainer = findClassDescriptionContainer($);
 
   // 签名
   const signatureEl = $("div.type-signature, pre.typeSignature, div.description pre").first();
@@ -104,7 +105,8 @@ export function parseClassPage(html: string): ClassDoc {
   else if (sigLower.includes("record")) kind = "record";
 
   // 描述: 类级别的 javadoc 文本
-  const description = extractClassDescription($);
+  const description = extractClassDescription($, classContainer);
+  const classNotes = extractDocNotes($, classContainer);
 
   // 继承链
   const superClass = $("span.extends-implements, ul.inheritance")
@@ -133,6 +135,10 @@ export function parseClassPage(html: string): ClassDoc {
     signature,
     kind,
     description,
+    authors: classNotes.authors,
+    since: classNotes.since,
+    deprecated: classNotes.deprecated,
+    seeAlso: classNotes.seeAlso,
     superClass,
     interfaces: interfaces.length > 0 ? interfaces : undefined,
     nestedClasses: nestedClasses.length > 0 ? nestedClasses : undefined,
@@ -143,7 +149,36 @@ export function parseClassPage(html: string): ClassDoc {
   };
 }
 
-function extractClassDescription($: cheerio.CheerioAPI): string {
+function findClassDescriptionContainer(
+  $: cheerio.CheerioAPI
+): cheerio.Cheerio<AnyNode> {
+  const candidates = [
+    "section.class-description",
+    "div.class-description",
+    "div.contentContainer > div.description",
+    "div.description",
+    "div.contentContainer > ul.blockList > li.blockList",
+  ];
+
+  for (const selector of candidates) {
+    const container = $(selector).first();
+    if (container.length > 0) {
+      return container;
+    }
+  }
+
+  return $.root();
+}
+
+function extractClassDescription(
+  $: cheerio.CheerioAPI,
+  container: cheerio.Cheerio<AnyNode>
+): string {
+  const containerText = container.find("div.block").first().text().trim();
+  if (containerText) {
+    return containerText;
+  }
+
   const candidates = [
     "section.class-description > div.block",
     "div.class-description > div.block",
@@ -161,6 +196,147 @@ function extractClassDescription($: cheerio.CheerioAPI): string {
   }
 
   return "";
+}
+
+type DocNotes = {
+  authors?: string[];
+  since?: string;
+  deprecated?: string;
+  seeAlso?: string[];
+};
+
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function normalizeNoteLabel(text: string): string {
+  return normalizeWhitespace(text).replace(/:$/, "").toLowerCase();
+}
+
+function uniqueValues(values: string[]): string[] {
+  return [...new Set(values.map((value) => normalizeWhitespace(value)).filter(Boolean))];
+}
+
+function collectNoteValues(
+  $: cheerio.CheerioAPI,
+  dt: cheerio.Cheerio<AnyNode>,
+  extractor?: (dd: cheerio.Cheerio<AnyNode>) => string[]
+): string[] {
+  const values: string[] = [];
+  let node = dt.next();
+
+  while (node.length > 0) {
+    const tagName = node.prop("tagName")?.toLowerCase();
+    if (tagName === "dt") {
+      break;
+    }
+    if (tagName === "dd") {
+      const extracted = extractor
+        ? extractor(node)
+        : [normalizeWhitespace(node.text())];
+      values.push(...extracted);
+    }
+    node = node.next();
+  }
+
+  return uniqueValues(values);
+}
+
+function extractSeeAlsoValues(
+  $: cheerio.CheerioAPI,
+  dd: cheerio.Cheerio<AnyNode>
+): string[] {
+  const values = [
+    ...dd.find("a").map((_i, el) => normalizeWhitespace($(el).text())).get(),
+    ...dd
+      .find("code")
+      .filter((_i, el) => $(el).parents("a").length === 0)
+      .map((_i, el) => normalizeWhitespace($(el).text()))
+      .get(),
+  ];
+
+  if (values.length > 0) {
+    return uniqueValues(values);
+  }
+
+  return uniqueValues([dd.text()]);
+}
+
+function extractDeprecatedText(
+  $: cheerio.CheerioAPI,
+  container: cheerio.Cheerio<AnyNode>
+): string | undefined {
+  const deprecationBlock = container.find("div.deprecation-block").first();
+  if (deprecationBlock.length > 0) {
+    const label = normalizeWhitespace(
+      deprecationBlock
+        .find(".deprecated-label, .deprecatedLabel, span.deprecatedLabel")
+        .first()
+        .text()
+    );
+    const comment = normalizeWhitespace(
+      deprecationBlock.find(".deprecation-comment").first().text()
+    );
+    const text = [label, comment].filter(Boolean).join(" ").trim();
+    if (text) {
+      return text;
+    }
+  }
+
+  const deprecatedValues = container
+    .find("dl.notes dt, dl dt")
+    .toArray()
+    .filter((dt) => normalizeNoteLabel($(dt).text()) === "deprecated")
+    .flatMap((dt) => collectNoteValues($, $(dt)));
+  if (deprecatedValues.length > 0) {
+    return deprecatedValues.join(" ");
+  }
+
+  const deprecatedLabel = container.find("span.deprecatedLabel").first();
+  if (deprecatedLabel.length > 0) {
+    return normalizeWhitespace(deprecatedLabel.parent().text()) || "Deprecated";
+  }
+
+  return undefined;
+}
+
+function extractDocNotes(
+  $: cheerio.CheerioAPI,
+  container: cheerio.Cheerio<AnyNode>
+): DocNotes {
+  let since: string | undefined;
+  const authors: string[] = [];
+  const seeAlso: string[] = [];
+
+  container.find("dl.notes dt, dl dt").each((_i, dt) => {
+    const label = normalizeNoteLabel($(dt).text());
+    if (!label) {
+      return;
+    }
+
+    if (label === "since" && !since) {
+      since = collectNoteValues($, $(dt)).join(" ") || undefined;
+      return;
+    }
+
+    if (label === "author" || label === "authors") {
+      authors.push(...collectNoteValues($, $(dt)));
+      return;
+    }
+
+    if (label === "see also") {
+      seeAlso.push(...collectNoteValues($, $(dt), (dd) => extractSeeAlsoValues($, dd)));
+    }
+  });
+
+  const deprecated = extractDeprecatedText($, container);
+
+  return {
+    authors: authors.length > 0 ? uniqueValues(authors) : undefined,
+    since,
+    deprecated,
+    seeAlso: seeAlso.length > 0 ? uniqueValues(seeAlso) : undefined,
+  };
 }
 
 function parseSummaryTable(
@@ -264,6 +440,7 @@ function extractMemberDoc(
   container: cheerio.Cheerio<AnyNode>,
   memberName: string
 ): MemberDoc | null {
+  const notes = extractDocNotes($, container);
   // 签名
   const sigEl = container.find("div.member-signature, pre").first();
   const signature = sigEl.text().trim() || memberName;
@@ -321,28 +498,6 @@ function extractMemberDoc(
     }
   });
 
-  // Since
-  let since: string | undefined;
-  const sinceDt = container.find("dl.notes dt:contains('Since'), dl dt:contains('Since')").first();
-  if (sinceDt.length > 0) {
-    since = sinceDt.next("dd").text().trim() || undefined;
-  }
-
-  // Deprecated
-  let deprecated: string | undefined;
-  const deprecatedEl = container.find("div.deprecation-block, span.deprecatedLabel").first();
-  if (deprecatedEl.length > 0) {
-    deprecated = deprecatedEl.parent().text().trim() || "Deprecated";
-  }
-
-  // See Also
-  const seeAlso: string[] = [];
-  container.find("dl.notes dt:contains('See Also'), dl dt:contains('See Also')").each((_i, dt) => {
-    $(dt).next("dd").find("a, code").each((_j, el) => {
-      seeAlso.push($(el).text().trim());
-    });
-  });
-
   return {
     name: memberName,
     signature,
@@ -350,9 +505,9 @@ function extractMemberDoc(
     parameters: parameters.length > 0 ? parameters : undefined,
     returns,
     throws: throws.length > 0 ? throws : undefined,
-    since,
-    deprecated,
-    seeAlso: seeAlso.length > 0 ? seeAlso : undefined,
+    since: notes.since,
+    deprecated: notes.deprecated,
+    seeAlso: notes.seeAlso,
   };
 }
 
