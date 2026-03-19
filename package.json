@@ -1,8 +1,16 @@
 {
   "name": "javadoc-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP server for browsing JavaDoc documentation via Maven coordinates",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loong95/javadoc-mcp.git"
+  },
+  "homepage": "https://github.com/loong95/javadoc-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/loong95/javadoc-mcp/issues"
+  },
   "keywords": [
     "mcp",
     "model-context-protocol",

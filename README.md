@@ -143,3 +143,8 @@ JavaDoc JAR 直接使用 Maven 本地仓库中的文件，默认路径为 `~/.m2
 - `cheerio` — HTML 解析
 - `adm-zip` — 直接从 JAR 读取文件，不解压到磁盘
 - `zod` — 参数校验
+
+## 仓库与反馈
+
+- GitHub: https://github.com/loong95/javadoc-mcp
+- Issues: https://github.com/loong95/javadoc-mcp/issues
