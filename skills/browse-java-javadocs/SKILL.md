@@ -25,9 +25,13 @@ Use `javadoc-mcp` to read published JavaDoc from Maven artifacts without relying
 
 Use first when the target is fuzzy.
 
-- Good for: “find something about retry”, “where is `StringUtils`”, “which member mentions timeout”.
-- Use `category="type"` to narrow to classes and interfaces.
+- Good for: “find retry-related packages”, “where is `StringUtils`”, “which member is named `timeout`”, “find `org.foo.Bar.baz`”.
+- `category` is optional; omit it to search types, members, and packages together.
+- Search matches indexed names, not JavaDoc prose. It does not search description text.
+- Use `category="type"` to narrow to indexed types such as classes, interfaces, enums, annotations, exceptions, and records.
+- Type results include the fully qualified class name, and type queries can match either the simple name or the fully qualified class name.
 - Use `category="member"` when the user asks about a method name but not the declaring type.
+- Member results include the declaring class, and member queries can match a simple member name or a fully qualified reference such as `org.example.Foo.bar` or `org.example.Foo#bar`.
 - Use `category="package"` when exploring an unfamiliar library layout.
 
 ### `list_packages`
@@ -42,7 +46,7 @@ Use when you need the package map for an artifact.
 
 Use when the package is known and you need the type list.
 
-- Good for selecting the exact class, interface, enum, annotation, exception, or record.
+- Good for selecting the exact class, interface, enum, annotation, exception, or record in a package.
 - Prefer this before `get_class` if the user gives only a package and a vague type description.
 
 ### `get_class`

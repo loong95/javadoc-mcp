@@ -9,10 +9,10 @@
 | Tool | 说明 |
 |------|------|
 | `list_packages` | 列出库中所有包 |
-| `list_classes` | 列出包中所有类、接口、枚举、注解 |
+| `list_classes` | 列出包中的类、接口、枚举、注解、异常、record |
 | `get_class` | 获取类概览文档（签名、描述、成员摘要） |
 | `get_member` | 获取方法/字段的完整文档（参数、返回值、异常等） |
-| `search` | 按关键词搜索类型、成员或包 |
+| `search` | 按关键词搜索类型、成员或包；`category` 可省略，`type/member` 结果会显示完整类名并支持完整限定名查询 |
 
 ## 运行要求
 
@@ -93,6 +93,7 @@ javadoc-mcp
 ```bash
 npm install
 npm run build
+npm test
 ```
 
 构建产物输出到 `dist/` 目录。
@@ -114,7 +115,7 @@ npx @modelcontextprotocol/inspector node dist/index.js
    → 获取所有包名
 
 2. list_classes(..., packageName="org.apache.commons.lang3")
-   → 查看包中的类列表
+   → 查看包中的类型列表
 
 3. get_class(..., className="org.apache.commons.lang3.StringUtils")
    → 查看 StringUtils 类的概览和方法摘要
@@ -123,7 +124,10 @@ npx @modelcontextprotocol/inspector node dist/index.js
    → 查看 join 方法的完整文档
 
 5. search(..., query="String", category="type")
-   → 搜索名称含 "String" 的类型
+   → 搜索名称或完整类名含 "String" 的类型
+
+6. search(..., query="org.apache.commons.lang3.StringUtils.join")
+   → 在未指定 `category` 时跨类型/成员/包搜索，按完整成员引用查找成员
 ```
 
 ## 本地仓库
