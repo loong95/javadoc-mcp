@@ -62,4 +62,5 @@ export interface SearchResult {
   label: string;
   url: string;
   description?: string;
+  qualifiedName?: string;
 }

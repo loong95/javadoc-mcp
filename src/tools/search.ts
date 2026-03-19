@@ -22,11 +22,71 @@ const SEARCH_INDEX_FILES: { file: string; category: SearchResult["category"] }[]
 
 const MAX_RESULTS = 30;
 
+export function matchesSearchResult(
+  result: SearchResult,
+  query: string
+): boolean {
+  const queryLower = query.toLowerCase();
+  if (result.category === "member") {
+    return matchesMemberSearchResult(result, queryLower);
+  }
+
+  return buildSearchTexts(result).some((text) => text.toLowerCase().includes(queryLower));
+}
+
+export function renderSearchResultLine(result: SearchResult): string {
+  const details = [result.qualifiedName, result.description].filter(Boolean);
+  return `- [${result.category}] **${result.label}**${details.length > 0 ? ` — ${details.join(" — ")}` : ""}`;
+}
+
+function buildSearchTexts(result: SearchResult): string[] {
+  const texts = [result.label];
+
+  if (result.category === "type" && result.qualifiedName) {
+    texts.push(result.qualifiedName);
+  }
+
+  return texts;
+}
+
+function matchesMemberSearchResult(
+  result: SearchResult,
+  queryLower: string
+): boolean {
+  if (result.label.toLowerCase().includes(queryLower)) {
+    return true;
+  }
+
+  if (!result.qualifiedName) {
+    return false;
+  }
+
+  const qualifiedNameLower = result.qualifiedName.toLowerCase();
+  const memberName = result.label.split("(")[0];
+
+  if (
+    !queryLower.startsWith(`${qualifiedNameLower}.`) &&
+    !queryLower.startsWith(`${qualifiedNameLower}#`)
+  ) {
+    return false;
+  }
+
+  const references = [
+    `${result.qualifiedName}.${memberName}`,
+    `${result.qualifiedName}#${memberName}`,
+    `${result.qualifiedName}.${result.label}`,
+    `${result.qualifiedName}#${result.label}`,
+  ];
+
+  return references.some((reference) =>
+    reference.toLowerCase().includes(queryLower)
+  );
+}
+
 export async function search(
   params: z.infer<typeof searchSchema>
 ): Promise<string> {
   const coord: MavenCoordinate = params;
-  const queryLower = params.query.toLowerCase();
 
   const allResults: SearchResult[] = [];
 
@@ -38,7 +98,7 @@ export async function search(
 
     const items = parseSearchIndex(content, category);
     for (const item of items) {
-      if (item.label.toLowerCase().includes(queryLower)) {
+      if (matchesSearchResult(item, params.query)) {
         allResults.push(item);
       }
     }
@@ -54,7 +114,7 @@ export async function search(
   ];
 
   for (const r of limited) {
-    lines.push(`- [${r.category}] **${r.label}**${r.description ? ` — ${r.description}` : ""}`);
+    lines.push(renderSearchResultLine(r));
   }
 
   return lines.join("\n");

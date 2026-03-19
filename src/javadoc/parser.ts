@@ -513,18 +513,70 @@ function extractMemberDoc(
 
 // ─── 搜索索引解析 ───
 
+function extractJsonArrayLiteral(content: string): string | null {
+  const assignmentIndex = content.indexOf("=");
+  if (assignmentIndex === -1) return null;
+
+  const arrayStart = content.indexOf("[", assignmentIndex);
+  if (arrayStart === -1) return null;
+
+  let depth = 0;
+  let quoteChar: '"' | "'" | "`" | null = null;
+  let escaped = false;
+
+  for (let i = arrayStart; i < content.length; i += 1) {
+    const char = content[i];
+
+    if (quoteChar) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+
+      if (char === quoteChar) {
+        quoteChar = null;
+      }
+
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === "`") {
+      quoteChar = char;
+      continue;
+    }
+
+    if (char === "[") {
+      depth += 1;
+      continue;
+    }
+
+    if (char === "]") {
+      depth -= 1;
+      if (depth === 0) {
+        return content.slice(arrayStart, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
 /** 解析 *-search-index.js 文件内容 */
 export function parseSearchIndex(
   content: string,
   category: SearchResult["category"]
 ): SearchResult[] {
-  // 格式: xxxSearchIndex = [{...}, ...];
-  const match = content.match(/=\s*(\[[\s\S]*\])\s*;?\s*$/);
-  if (!match) return [];
+  const jsonArray = extractJsonArrayLiteral(content);
+  if (!jsonArray) return [];
 
   let items: Array<Record<string, string>>;
   try {
-    items = JSON.parse(match[1]);
+    items = JSON.parse(jsonArray);
   } catch {
     return [];
   }
@@ -533,16 +585,31 @@ export function parseSearchIndex(
     const label = item.l || item.c || "";
     let url = item.u || item.url || "";
     const description = item.d || "";
+    let qualifiedName: string | undefined;
 
-    // 对于 member 类型，item.p 是类名，item.c 是类名
-    if (category === "member" && item.p) {
-      url = item.p.replace(/\./g, "/") + ".html#" + (item.u || label);
+    if (category === "member") {
+      if (item.p && item.c) {
+        qualifiedName = `${item.p}.${item.c}`;
+        url =
+          item.p.replace(/\./g, "/") +
+          "/" +
+          item.c +
+          ".html#" +
+          (item.u || label);
+      }
     } else if (category === "type" && item.p) {
+      qualifiedName = `${item.p}.${label}`;
       url = item.p.replace(/\./g, "/") + "/" + label + ".html";
     } else if (category === "package") {
       url = label.replace(/\./g, "/") + "/package-summary.html";
     }
 
-    return { category, label, url, description };
+    return {
+      category,
+      label,
+      url,
+      description,
+      ...(qualifiedName ? { qualifiedName } : {}),
+    };
   });
 }
