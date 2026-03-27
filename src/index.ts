@@ -1,72 +1,31 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import fs from "node:fs";
-import { listPackagesSchema, listPackages } from "./tools/list-packages.js";
-import { listClassesSchema, listClasses } from "./tools/list-classes.js";
-import { getClassSchema, getClass } from "./tools/get-class.js";
-import { getMemberSchema, getMember } from "./tools/get-member.js";
-import { searchSchema, search } from "./tools/search.js";
+import { readPackageManifest } from "./package-manifest.js";
+import { toolDefinitions } from "./tool-definitions.js";
 
-type PackageManifest = {
-  name?: string;
-  version?: string;
-};
-
-const packageJson = JSON.parse(
-  fs.readFileSync(new URL("../package.json", import.meta.url), "utf-8")
-) as PackageManifest;
+const packageJson = readPackageManifest();
 
 const server = new McpServer({
   name: packageJson.name ?? "javadoc-mcp",
   version: packageJson.version ?? "1.0.1",
 });
 
-// 注册 tools
-server.tool(
-  "list_packages",
-  "List all packages in a Java library's JavaDoc. Automatically resolves the JavaDoc JAR through Maven and reads it directly from the local Maven repository.",
-  listPackagesSchema.shape,
-  async (params) => ({
-    content: [{ type: "text", text: await listPackages(params) }],
-  })
-);
-
-server.tool(
-  "list_classes",
-  "List all classes, interfaces, enums, and annotations in a Java package.",
-  listClassesSchema.shape,
-  async (params) => ({
-    content: [{ type: "text", text: await listClasses(params) }],
-  })
-);
-
-server.tool(
-  "get_class",
-  "Get the overview documentation for a Java class, including its signature, description, and member summaries.",
-  getClassSchema.shape,
-  async (params) => ({
-    content: [{ type: "text", text: await getClass(params) }],
-  })
-);
-
-server.tool(
-  "get_member",
-  "Get detailed documentation for a specific method or field of a Java class, including parameters, return type, and exceptions.",
-  getMemberSchema.shape,
-  async (params) => ({
-    content: [{ type: "text", text: await getMember(params) }],
-  })
-);
-
-server.tool(
-  "search",
-  "Search JavaDoc for types, members, or packages matching a query string.",
-  searchSchema.shape,
-  async (params) => ({
-    content: [{ type: "text", text: await search(params) }],
-  })
-);
+for (const tool of toolDefinitions) {
+  server.tool(
+    tool.name,
+    tool.description,
+    tool.schema.shape,
+    async (params: unknown) => ({
+      content: [
+        {
+          type: "text" as const,
+          text: await tool.handler(params as Record<string, string>),
+        },
+      ],
+    })
+  );
+}
 
 // 启动
 async function main() {

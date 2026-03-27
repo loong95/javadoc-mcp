@@ -1,4 +1,4 @@
 interface:
   display_name: "Browse Java Javadocs"
-  short_description: "Use javadoc-mcp to inspect Java APIs by Maven coordinates"
-  default_prompt: "Use $browse-java-javadocs to inspect a Java library API through javadoc-mcp tools."
+  short_description: "Use javadoc-cli to inspect Java APIs by Maven coordinates"
+  default_prompt: "Use $browse-java-javadocs to inspect a Java library API through javadoc-cli shell commands."

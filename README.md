@@ -1,10 +1,10 @@
 # javadoc-mcp
 
-一个 MCP (Model Context Protocol) 服务器，让 AI 助手能够通过 Maven 坐标浏览 JavaDoc 文档。
+一个同时提供 MCP 服务和 Shell CLI 的工具，让 AI 助手或终端用户能够通过 Maven 坐标浏览 JavaDoc 文档。
 
 ## 功能
 
-提供 5 个 MCP tools，支持逐层浏览 JavaDoc：
+提供 5 个 JavaDoc 浏览能力，既可通过 MCP tools 调用，也可通过 CLI 子命令调用：
 
 | Tool | 说明 |
 |------|------|
@@ -23,7 +23,12 @@
 
 ## 安装
 
-### 方式一：直接通过 npx 使用
+安装后会提供两个可执行文件：
+
+- `javadoc-mcp`：启动 MCP 服务
+- `javadoc-cli`：在 shell 中直接查询 JavaDoc
+
+### 方式一：直接通过 npx 使用 MCP
 
 ```bash
 npx -y javadoc-mcp
@@ -39,6 +44,18 @@ npm install -g javadoc-mcp
 
 ```bash
 javadoc-mcp
+```
+
+也可以直接在 shell 中调用 CLI：
+
+```bash
+javadoc-cli --help
+```
+
+如果不想全局安装，可以通过 `npx` 临时调用 CLI：
+
+```bash
+npx -y -p javadoc-mcp javadoc-cli --help
 ```
 
 ## 配置 MCP 客户端
@@ -98,6 +115,12 @@ npm test
 
 构建产物输出到 `dist/` 目录。
 
+本地开发时也可以直接运行 CLI：
+
+```bash
+node dist/cli.js --help
+```
+
 ### 调试
 
 使用 MCP Inspector 进行交互式测试：
@@ -107,6 +130,43 @@ npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
 ## 使用示例
+
+### CLI
+
+```bash
+javadoc-cli list-packages \
+  --group-id org.apache.commons \
+  --artifact-id commons-lang3 \
+  --version 3.14.0
+
+javadoc-cli list-classes \
+  --group-id org.apache.commons \
+  --artifact-id commons-lang3 \
+  --version 3.14.0 \
+  --package-name org.apache.commons.lang3
+
+javadoc-cli get-class \
+  --group-id org.apache.commons \
+  --artifact-id commons-lang3 \
+  --version 3.14.0 \
+  --class-name org.apache.commons.lang3.StringUtils
+
+javadoc-cli get-member \
+  --group-id org.apache.commons \
+  --artifact-id commons-lang3 \
+  --version 3.14.0 \
+  --class-name org.apache.commons.lang3.StringUtils \
+  --member-name join
+
+javadoc-cli search \
+  --group-id org.apache.commons \
+  --artifact-id commons-lang3 \
+  --version 3.14.0 \
+  --query String \
+  --category type
+```
+
+### MCP
 
 典型的浏览流程：
 

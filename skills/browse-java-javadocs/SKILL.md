@@ -1,27 +1,29 @@
 ---
 name: browse-java-javadocs
-description: Inspect external Java and JVM library APIs through the javadoc-mcp MCP server using Maven coordinates. Use when Codex needs authoritative JavaDoc instead of guessing, especially for tasks like finding the right package or class, checking method overloads, reading parameter or return documentation, confirming exceptions or deprecations, comparing APIs across versions, or answering questions about libraries such as Spring, Apache Commons, Netty, Guava, Jakarta, or any dependency published with JavaDoc JARs.
+description: Inspect external Java and JVM library APIs through the javadoc-cli shell command using Maven coordinates. Use when Codex needs authoritative JavaDoc instead of guessing, especially for tasks like finding the right package or class, checking method overloads, reading parameter or return documentation, confirming exceptions or deprecations, comparing APIs across versions, or answering questions about libraries such as Spring, Apache Commons, Netty, Guava, Jakarta, or any dependency published with JavaDoc JARs.
 ---
 
 # Browse Java Javadocs
 
 ## Overview
 
-Use `javadoc-mcp` to read published JavaDoc from Maven artifacts without relying on memory. Prefer this skill when the question is about an external dependency API and the answer depends on exact signatures, overloads, deprecations, return values, thrown exceptions, or package/class discovery.
+Use `javadoc-cli` to read published JavaDoc from Maven artifacts without relying on memory. Prefer this skill when the question is about an external dependency API and the answer depends on exact signatures, overloads, deprecations, return values, thrown exceptions, or package/class discovery.
+
+If `javadoc-cli` is not already on `PATH`, invoke it through npm with `npx -y -p javadoc-mcp javadoc-cli ...`.
 
 ## Workflow
 
-1. Identify `groupId`, `artifactId`, and `version` before calling tools. If the user omits the version, ask for it or clearly state the version you assume.
-2. Start broad with `search` when the user only knows a keyword, class fragment, or member name.
-3. Use `list_packages` when the library surface is unclear and you need package discovery.
-4. Use `list_classes` after you know the package and need the available types.
-5. Use `get_class` to inspect the class signature, inheritance, interfaces, description, and member summaries.
-6. Use `get_member` for method or field detail after you know the class and member name.
+1. Identify `groupId`, `artifactId`, and `version` before running commands. If the user omits the version, ask for it or clearly state the version you assume.
+2. Start broad with `javadoc-cli search` when the user only knows a keyword, class fragment, or member name.
+3. Use `javadoc-cli list-packages` when the library surface is unclear and you need package discovery.
+4. Use `javadoc-cli list-classes` after you know the package and need the available types.
+5. Use `javadoc-cli get-class` to inspect the class signature, inheritance, interfaces, description, and member summaries.
+6. Use `javadoc-cli get-member` for method or field detail after you know the class and member name.
 7. Summarize the result in plain language, separating documented facts from your own inference.
 
 ## Tool Selection
 
-### `search`
+### `javadoc-cli search`
 
 Use first when the target is fuzzy.
 
@@ -34,30 +36,30 @@ Use first when the target is fuzzy.
 - Member results include the declaring class, and member queries can match a simple member name or a fully qualified reference such as `org.example.Foo.bar` or `org.example.Foo#bar`.
 - Use `category="package"` when exploring an unfamiliar library layout.
 
-### `list_packages`
+### `javadoc-cli list-packages`
 
 Use when you need the package map for an artifact.
 
 - Good for first-pass exploration of a new dependency.
-- Useful when `search` returns too many ambiguous hits.
-- The server reads `element-list` first and falls back to `package-list`, so it works for both newer and older JavaDoc layouts.
+- Useful when `javadoc-cli search` returns too many ambiguous hits.
+- The tool reads `element-list` first and falls back to `package-list`, so it works for both newer and older JavaDoc layouts.
 
-### `list_classes`
+### `javadoc-cli list-classes`
 
 Use when the package is known and you need the type list.
 
 - Good for selecting the exact class, interface, enum, annotation, exception, or record in a package.
-- Prefer this before `get_class` if the user gives only a package and a vague type description.
+- Prefer this before `javadoc-cli get-class` if the user gives only a package and a vague type description.
 
-### `get_class`
+### `javadoc-cli get-class`
 
 Use for the class-level overview.
 
 - Returns the signature, inheritance/interfaces, description, and member summaries.
-- Use this before `get_member` if you need to confirm which overload family or field names exist.
+- Use this before `javadoc-cli get-member` if you need to confirm which overload family or field names exist.
 - Use this to orient yourself before explaining how a type is intended to be used.
 
-### `get_member`
+### `javadoc-cli get-member`
 
 Use for authoritative method or field documentation.
 
@@ -69,10 +71,10 @@ Use for authoritative method or field documentation.
 
 Prefer this drill-down order:
 
-1. `search` or `list_packages`
-2. `list_classes`
-3. `get_class`
-4. `get_member`
+1. `javadoc-cli search` or `javadoc-cli list-packages`
+2. `javadoc-cli list-classes`
+3. `javadoc-cli get-class`
+4. `javadoc-cli get-member`
 
 Do not jump directly to a conclusion from a class or method name alone. Read the JavaDoc first, then explain:
 
@@ -91,14 +93,14 @@ Do not jump directly to a conclusion from a class or method name alone. Read the
 
 ## Failure Handling
 
-- If `list_packages` reports no package list, the artifact may not publish a usable JavaDoc JAR.
-- If `get_class` says the class was not found, fall back to `search` or `list_classes` instead of guessing the fully qualified name.
-- If `get_member` says the member was not found, inspect `get_class` first because the method may have a different name or live in another type.
+- If `javadoc-cli list-packages` reports no package list, the artifact may not publish a usable JavaDoc JAR.
+- If `javadoc-cli get-class` says the class was not found, fall back to `javadoc-cli search` or `javadoc-cli list-classes` instead of guessing the fully qualified name.
+- If `javadoc-cli get-member` says the member was not found, inspect `javadoc-cli get-class` first because the method may have a different name or live in another type.
 - If the user asks about project-local code rather than a published dependency, prefer source inspection over this skill.
 
 ## Examples
 
-- “Explain `org.springframework:spring-web:6.1.8` `WebClient` request building API.”
-- “Find the JavaDoc for `StringUtils.join` in `org.apache.commons:commons-lang3:3.14.0`.”
-- “Compare `com.google.guava:guava` `Splitter` docs between two versions.”
-- “Which package contains retry-related classes in this Maven artifact?”
+- `javadoc-cli search --group-id org.springframework --artifact-id spring-web --version 6.1.8 --query WebClient`
+- `javadoc-cli get-member --group-id org.apache.commons --artifact-id commons-lang3 --version 3.14.0 --class-name org.apache.commons.lang3.StringUtils --member-name join`
+- `javadoc-cli get-class --group-id com.google.guava --artifact-id guava --version 33.2.1-jre --class-name com.google.common.base.Splitter`
+- `javadoc-cli list-packages --group-id io.netty --artifact-id netty-common --version 4.1.118.Final`

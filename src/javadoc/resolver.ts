@@ -18,6 +18,15 @@ function expandMavenPath(rawPath: string): string {
     .replace(/\$\{env\.HOME\}/g, process.env.HOME ?? os.homedir());
 }
 
+export function extractLocalRepositoryPath(settings: string): string | null {
+  const uncommentedSettings = settings.replace(/<!--[\s\S]*?-->/g, "");
+  const match = uncommentedSettings.match(
+    /<localRepository>\s*([^<]+?)\s*<\/localRepository>/
+  );
+
+  return match ? match[1].trim() : null;
+}
+
 function resolveLocalRepository(): string {
   try {
     if (!fs.existsSync(USER_SETTINGS_PATH)) {
@@ -25,12 +34,12 @@ function resolveLocalRepository(): string {
     }
 
     const settings = fs.readFileSync(USER_SETTINGS_PATH, "utf-8");
-    const match = settings.match(/<localRepository>([^<]+)<\/localRepository>/);
-    if (!match) {
+    const localRepository = extractLocalRepositoryPath(settings);
+    if (!localRepository) {
       return DEFAULT_LOCAL_REPOSITORY;
     }
 
-    return expandMavenPath(match[1]);
+    return expandMavenPath(localRepository);
   } catch {
     return DEFAULT_LOCAL_REPOSITORY;
   }
