@@ -47,6 +47,16 @@ function resolveLocalRepository(): string {
 
 const LOCAL_REPOSITORY = resolveLocalRepository();
 
+type MavenInvocation = {
+  command: string;
+  args: string[];
+};
+
+type MavenArgOptions = {
+  localRepository?: string;
+  settingsPath?: string | null;
+};
+
 function getClassifierJarFileName(
   coord: MavenCoordinate,
   classifier: string
@@ -86,18 +96,90 @@ function isClassifierCached(
   return fs.existsSync(getClassifierJarPath(coord, classifier));
 }
 
+export function getMavenInvocation(
+  args: string[],
+  platform: NodeJS.Platform = process.platform
+): MavenInvocation {
+  if (platform === "win32") {
+    return {
+      command: "cmd.exe",
+      args: ["/d", "/s", "/c", "mvn", ...args],
+    };
+  }
+
+  return {
+    command: "mvn",
+    args,
+  };
+}
+
+export function buildMavenArgs(
+  args: string[],
+  options: MavenArgOptions = {}
+): string[] {
+  const finalArgs: string[] = [];
+
+  if (options.settingsPath) {
+    finalArgs.push("-s", options.settingsPath);
+  }
+
+  if (options.localRepository) {
+    finalArgs.push(`-Dmaven.repo.local=${options.localRepository}`);
+  }
+
+  finalArgs.push(...args);
+
+  return finalArgs;
+}
+
+export function formatProcessError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const details = [error.message.trim()];
+  const stdout =
+    "stdout" in error && typeof error.stdout === "string"
+      ? error.stdout.trim()
+      : "";
+  const stderr =
+    "stderr" in error && typeof error.stderr === "string"
+      ? error.stderr.trim()
+      : "";
+
+  if (stdout) {
+    details.push("stdout:", stdout);
+  }
+
+  if (stderr) {
+    details.push("stderr:", stderr);
+  }
+
+  return details.join("\n");
+}
+
 /** 通过 mvn 命令将指定 classifier 的 JAR 下载到本地 Maven 仓库 */
 async function downloadViaMaven(
   coord: MavenCoordinate,
   classifier: string
 ): Promise<void> {
-  const artifact =
-    `${coord.groupId}:${coord.artifactId}:${coord.version}:jar:${classifier}`;
-  await execFileAsync("mvn", [
-    "dependency:get",
-    `-Dartifact=${artifact}`,
-    "-Dtransitive=false",
-  ]);
+  const artifact = `${coord.groupId}:${coord.artifactId}:${coord.version}:jar:${classifier}`;
+  const settingsPath = fs.existsSync(USER_SETTINGS_PATH) ? USER_SETTINGS_PATH : null;
+  const invocation = getMavenInvocation(
+    buildMavenArgs(
+      [
+        "dependency:get",
+        `-Dartifact=${artifact}`,
+        "-Dtransitive=false",
+      ],
+      {
+        localRepository: LOCAL_REPOSITORY,
+        settingsPath,
+      }
+    )
+  );
+
+  await execFileAsync(invocation.command, invocation.args);
 }
 
 /** 确保指定 classifier 的 JAR 已存在于本地 Maven 仓库。返回 JAR 文件路径。 */
@@ -116,7 +198,7 @@ export async function ensureClassifierJar(
   } catch (mvnError) {
     throw new Error(
       `Failed to resolve ${classifier} jar for ${coord.groupId}:${coord.artifactId}:${coord.version} into local Maven repository ${LOCAL_REPOSITORY}. ` +
-        `Maven: ${mvnError instanceof Error ? mvnError.message : mvnError}.`
+        `Maven: ${formatProcessError(mvnError)}.`
     );
   }
 

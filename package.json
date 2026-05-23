@@ -1,6 +1,6 @@
 {
   "name": "javadoc-mcp",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "MCP server for browsing JavaDoc documentation via Maven coordinates",
   "license": "Apache-2.0",
   "repository": {
