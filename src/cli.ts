@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { readPackageManifest } from "./package-manifest.js";
@@ -243,11 +245,30 @@ export async function runCli(
   }
 }
 
-const isMainModule =
-  process.argv[1] !== undefined &&
-  fileURLToPath(import.meta.url) === process.argv[1];
+function normalizeModulePath(path: string): string {
+  try {
+    const realPath = realpathSync(path);
+    return process.platform === "win32" ? realPath.toLowerCase() : realPath;
+  } catch {
+    const resolvedPath = resolve(path);
+    return process.platform === "win32"
+      ? resolvedPath.toLowerCase()
+      : resolvedPath;
+  }
+}
 
-if (isMainModule) {
+function isMainModule(moduleUrl: string, argvPath?: string): boolean {
+  if (!argvPath) {
+    return false;
+  }
+
+  return (
+    normalizeModulePath(fileURLToPath(moduleUrl)) ===
+    normalizeModulePath(argvPath)
+  );
+}
+
+if (isMainModule(import.meta.url, process.argv[1])) {
   runCli().then((exitCode) => {
     process.exitCode = exitCode;
   });

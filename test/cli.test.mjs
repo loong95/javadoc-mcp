@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { mkdir, readFile, rm, symlink } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 const { parseCliArgv } = await import('../dist/cli.js');
+const packageJson = JSON.parse(
+  await readFile(new URL('../package.json', import.meta.url), 'utf8')
+);
 
 test('parseCliArgv parses search command options', () => {
   const parsed = parseCliArgv([
@@ -69,4 +76,28 @@ test('parseCliArgv rejects unexpected positional arguments', () => {
 
   assert.equal(parsed.kind, 'error');
   assert.match(parsed.message, /Unexpected positional argument/);
+});
+
+test('javadoc-cli runs when launched through a symlinked package path', async (t) => {
+  const tempRoot = fileURLToPath(new URL('../.temp/', import.meta.url));
+  const fixtureRoot = path.join(tempRoot, 'cli-link-fixture');
+  const linkedDistDir = path.join(fixtureRoot, 'dist');
+  const realDistDir = fileURLToPath(new URL('../dist/', import.meta.url));
+  const linkedCliPath = path.join(linkedDistDir, 'cli.js');
+
+  await rm(fixtureRoot, { force: true, recursive: true });
+  await mkdir(fixtureRoot, { recursive: true });
+  await symlink(realDistDir, linkedDistDir, process.platform === 'win32' ? 'junction' : 'dir');
+
+  t.after(async () => {
+    await rm(fixtureRoot, { force: true, recursive: true });
+  });
+
+  const result = spawnSync(process.execPath, [linkedCliPath, '--version'], {
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, '');
+  assert.equal(result.stdout.trim(), packageJson.version);
 });

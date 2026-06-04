@@ -2,6 +2,8 @@
 
 一个同时提供 MCP 服务和 Shell CLI 的工具，让 AI 助手或终端用户能够通过 Maven 坐标浏览 JavaDoc 文档。
 
+发布记录见 [CHANGELOG.md](./CHANGELOG.md)。
+
 ## 功能
 
 提供 5 个 JavaDoc 浏览能力，既可通过 MCP tools 调用，也可通过 CLI 子命令调用：
@@ -57,6 +59,8 @@ javadoc-cli --help
 ```bash
 npx -y -p javadoc-mcp javadoc-cli --help
 ```
+
+当前版本已经覆盖 `npx` 和其他符号链接路径下的 CLI 启动场景。
 
 ## 配置 MCP 客户端
 
